@@ -11,12 +11,10 @@ def generate_data(count: int, max_word_size: int = 5, fonts: list = None, file_p
 
     # Creating a random word object
     rw = RandomWord(max_word_size=max_word_size,
-                    constant_word_size=True,
-                    include_digits=False,
+                    constant_word_size=False,
+                    include_digits=True,
                     special_chars=r"@_!#$%^&*()<>?/\|}{~:",
                     include_special_chars=False)
-
-    print(rw.generate())
 
     x = [rw.generate() for _ in range(count)]
 
@@ -25,8 +23,11 @@ def generate_data(count: int, max_word_size: int = 5, fonts: list = None, file_p
 
     img_name = 0
     for img, text in generator:
-        img.save(file_path + "/" + str(img_name) + ".jpg")
-        img_name += 1
+        if img is not None:
+            img.save(file_path + "/" + str(img_name) + ".jpg")
+            img_name += 1
+        else:
+            print("ошибка генерации")
 
 
 def get_fronts_path(path: str) -> list:
@@ -40,14 +41,14 @@ def get_fronts_path(path: str) -> list:
     return path_dict
 
 
-def generate_dataset(fonts_path: str,file_path: str = None, ):
+def generate_dataset(count: int, fonts_path: str, file_path: str = None, ):
     def d(path_dict, folder):
         for key in path_dict:
             font = [path_dict[key]]
             path = folder + "/" + key
             if not os.path.isdir(path):
                 os.mkdir(path)
-            generate_data(count=20, file_path=path, fonts=font)
+            generate_data(count=count, file_path=path, fonts=font)
 
     if file_path is None:
         file_path = os.getcwd()
@@ -64,12 +65,10 @@ def generate_dataset(fonts_path: str,file_path: str = None, ):
         os.mkdir(train_folder)
     path_dict = get_fronts_path(fonts_path)
 
-
     d(path_dict, test_folder)
     d(path_dict, train_folder)
 
 
 if __name__ == "__main__":
     # generate_data(count=5 ,file_path="data")
-    generate_dataset(fonts_path="fonts")
-
+    generate_dataset(fonts_path="fonts", count=100)
