@@ -137,13 +137,14 @@ preprocess = T.Compose([
 
 if __name__ == "__main__":
 
-
-    # Device configuration
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = resnet18(num_classes=10).to(device)
     num_epochs = 15
     batch_size = 64
     learning_rate = 0.0005
+    k_folds_num = 5
+    # Device configuration
+    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    model = resnet18(num_classes=10).to(device)
+
 
     # Loss and optimizer
     criterion = torch.nn.CrossEntropyLoss()
@@ -184,7 +185,7 @@ if __name__ == "__main__":
     metric_Recall.to(device)
     metric_F1.to(device)
 
-    k_folds_num = 5
+
 
     kfold = KFold(n_splits=k_folds_num, shuffle=True)
 
@@ -194,7 +195,7 @@ if __name__ == "__main__":
     # K-fold Cross Validation model evaluation
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
-        # Print
+
         print(f'FOLD {fold}')
         print('--------------------------------')
 
@@ -212,6 +213,7 @@ if __name__ == "__main__":
         total_step = len(trainloader)
         for epoch in range(num_epochs):
             model.train()
+
             # Train
             for i, (images, labels) in enumerate(trainloader):
                 # Move tensors to the configured device
@@ -267,21 +269,8 @@ if __name__ == "__main__":
                 metric_Recall.reset()
                 metric_F1.reset()
 
-    metric_Precision.plot(values_Precision)
-    metric_Recall.plot(values_Recall)
-    class_list = DatasetFonts.get_class_list("F:\\Projects\\font-classification-task\\dataset")
-    logging_metrics(data=values_Precision,
-                    file_name="Precision",
-                    field=class_list)
 
-    logging_metrics(data=values_Recall,
-                    file_name="Recall",
-                    field=class_list)
-
-    logging_metrics(data=values_F1,
-                    file_name="F1",
-                    field=class_list)
-
+    #Test model
     with torch.no_grad():
         correct = 0
         total = 0
@@ -297,6 +286,22 @@ if __name__ == "__main__":
             del images, labels, outputs
 
         print('Accuracy of the network on the {} test images: {} %'.format(1000, 100 * correct / total))
+
+    metric_Precision.plot(values_Precision)
+    metric_Recall.plot(values_Recall)
+    class_list = DatasetFonts.get_class_list("F:\\Projects\\font-classification-task\\dataset")
+
+    logging_metrics(data=values_Precision,
+                    file_name="Precision",
+                    field=class_list)
+
+    logging_metrics(data=values_Recall,
+                    file_name="Recall",
+                    field=class_list)
+
+    logging_metrics(data=values_F1,
+                    file_name="F1",
+                    field=class_list)
 
     torch.save(model.state_dict(), "weights.pth")
 

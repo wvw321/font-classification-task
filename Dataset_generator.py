@@ -1,11 +1,16 @@
 # The generators use the same arguments as the CLI, only as parameters
 import os
 from pathlib import Path
+import warnings
 from RandomWordGenerator import RandomWord
 from trdg.generators import GeneratorFromStrings
+import argparse
 
 
-def generate_data(count: int, max_word_size: int = 5, fonts: list = None, file_path: str = None):
+def generate_data(count: int,
+                  max_word_size: int = 5,
+                  fonts: list = None,
+                  file_path: str = None):
     if fonts is None:
         fonts = []
 
@@ -30,22 +35,29 @@ def generate_data(count: int, max_word_size: int = 5, fonts: list = None, file_p
             img.save(file_path + "/" + str(img_name) + ".jpg")
             img_name += 1
         else:
-            print("ошибка генерации")
+            warnings.warn("Еrror generating an image in the library: trdg")
 
 
-def get_fronts_path(path: str) -> list:
+def get_fronts_path(path: str) -> dict:
     dir_path = os.path.normpath(os.getcwd() + '\\' + path)
+
     path_dict = {}
+    print("Found fonts")
+    print('--------------------------------')
     for root, dirs, files in os.walk(dir_path):
         for file in files:
             if file.endswith('.otf') or file.endswith('.ttf'):
                 print(os.path.normpath(root + '/' + str(file)))
                 path_dict[Path(file).stem] = os.path.normpath(root + '/' + str(file))
+    print('--------------------------------')
     return path_dict
 
 
-def generate_dataset(count: int, fonts_path: str, file_path: str = None, ):
-    def d(path_dict, folder):
+def generate_dataset(count: int,
+                     fonts_path: str,
+                     file_path: str = None
+                     ):
+    def generate_folder(path_dict, folder):
         for key in path_dict:
             font = [path_dict[key]]
             path = folder + "/" + key
@@ -68,10 +80,32 @@ def generate_dataset(count: int, fonts_path: str, file_path: str = None, ):
         os.mkdir(train_folder)
     path_dict = get_fronts_path(fonts_path)
 
-    d(path_dict, test_folder)
-    d(path_dict, train_folder)
+    generate_folder(path_dict, test_folder)
+    generate_folder(path_dict, train_folder)
 
+
+def parse_opt():
+    """Parse command line arguments."""
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--fonts_path", type=str, default="fonts", help="fonts folder")
+    parser.add_argument("--file_path", type=str, default=None, help="file_path folder")
+    parser.add_argument("--count", type=int, default=50, help="file_path folder")
+    # parser.add_argument("--source", type=str, required=True, help="video file path")
+    # parser.add_argument("--view-img", action="store_true", help="show results")
+    # parser.add_argument("--save-img", action="store_true", help="save results")
+    # parser.add_argument("--exist-ok", action="store_true", help="existing project/name ok, do not increment")
+    return parser.parse_args()
+
+
+def main(opt):
+    generate_dataset(**vars(opt))
+
+
+# if __name__ == "__main__":
+#
+#     # generate_data(count=5 ,file_path="data")
+#     generate_dataset(fonts_path="fonts", count=100)
 
 if __name__ == "__main__":
-    # generate_data(count=5 ,file_path="data")
-    generate_dataset(fonts_path="fonts", count=100)
+    opt = parse_opt()
+    main(opt)
