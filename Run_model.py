@@ -53,4 +53,4 @@ class_id = prediction.argmax().item()
 
 
 
-print(class_id)
+# print(class_id)

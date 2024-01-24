@@ -18,8 +18,11 @@ def generate_data(count: int, max_word_size: int = 5, fonts: list = None, file_p
 
     x = [rw.generate() for _ in range(count)]
 
-    generator = GeneratorFromStrings(strings=x, count=count,
-                                     fonts=fonts)
+    generator = GeneratorFromStrings(strings=x,
+                                     count=count,
+                                     fonts=fonts,
+                                     skewing_angle=5,
+                                     random_skew=True, )
 
     img_name = 0
     for img, text in generator:
