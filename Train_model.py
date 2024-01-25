@@ -1,7 +1,6 @@
 import csv
 import os
 
-
 import numpy as np
 import torch
 import torchmetrics
@@ -16,7 +15,12 @@ from sklearn.model_selection import KFold
 
 class DatasetFonts(Dataset):
 
-    def __init__(self, path: str, preprocess: T.Compose, train: bool = True):
+    def __init__(
+            self,
+            path: str,
+            preprocess: T.Compose,
+            train: bool = True
+    ):
 
         if train is True:
             self.path = path + '//train'
@@ -25,7 +29,7 @@ class DatasetFonts(Dataset):
 
         self.cl = {}
         count = 0
-        for dir_name in os.listdir(self.path):
+        for dir_name in os.listdir(os.path.abspath(self.path)):
             self.cl[dir_name] = count
             count += 1
         self.num_cl = self.cl.__len__()
@@ -60,16 +64,17 @@ class DatasetFonts(Dataset):
         return class_list
 
 
-def data_loader(data_dir: str,
-                preprocess,
-                batch_size: int,
-                random_seed: int = 42,
-                valid_size: float = 0.1,
-                shuffle: bool = True,
-                test: bool = False,
-                ):
+def data_loader(
+        dataset_path: str,
+        preprocess,
+        batch_size: int,
+        random_seed: int = 42,
+        valid_size: float = 0.1,
+        shuffle: bool = True,
+        test: bool = False,
+):
     if test:
-        dataset = DatasetFonts(path=data_dir,
+        dataset = DatasetFonts(path=dataset_path,
                                preprocess=preprocess,
                                train=False
                                )
@@ -82,7 +87,7 @@ def data_loader(data_dir: str,
         return data_loader
 
     # load the dataset
-    train_dataset = DatasetFonts(path=data_dir, preprocess=preprocess, train=True)
+    train_dataset = DatasetFonts(path=dataset_path, preprocess=preprocess, train=True)
 
     valid_dataset = train_dataset
 
@@ -98,22 +103,54 @@ def data_loader(data_dir: str,
     train_sampler = SubsetRandomSampler(train_idx)
     valid_sampler = SubsetRandomSampler(valid_idx)
 
-    train_loader = torch.utils.data.DataLoader(
-        train_dataset, batch_size=batch_size, sampler=train_sampler)
+    train_loader = torch.utils.data.DataLoader(train_dataset,
+                                               batch_size=batch_size,
+                                               sampler=train_sampler)
 
-    valid_loader = torch.utils.data.DataLoader(
-        valid_dataset, batch_size=batch_size, sampler=valid_sampler)
+    valid_loader = torch.utils.data.DataLoader(valid_dataset,
+                                               batch_size=batch_size,
+                                               sampler=valid_sampler)
 
     return (train_loader, valid_loader)
 
 
-def logging_metrics(data, file_name: str = None, path: str = None, field: list = None):
+def logging_metrics(
+        data,
+        file_name:
+        str = None,
+        path: str = None,
+        field: list = None,
+        type_metric: str = None,
+
+):
     if file_name is None:
         file_name = 'data.csv'
     else:
         file_name = file_name + ".csv"
-    if path is not None:
-        file_name = path + file_name
+
+    if path is None:
+        if type_metric is None:
+            if not os.path.isdir("metrics"):
+                os.mkdir("metrics")
+
+            file_name = "metrics/" + file_name
+        else:
+            if not os.path.isdir("metrics"):
+                os.mkdir("metrics")
+            if not os.path.isdir("metrics/" + type_metric):
+                os.mkdir("metrics/" + type_metric)
+            file_name = "metrics/" + type_metric + "/" + file_name
+    else:
+        if type_metric is None:
+            if not os.path.isdir(path + "/metrics"):
+                os.mkdir(path + "/metrics")
+            file_name = path + "/metrics/" + file_name
+        else:
+            if not os.path.isdir(path + "/metrics"):
+                os.mkdir(path + "/metrics")
+            if not os.path.isdir(path + "/metrics/" + type_metric):
+                os.mkdir(path + "/metrics/" + type_metric)
+                file_name = path + "/metrics/" + type_metric + "/" + file_name
 
     with open(file_name, 'w', newline='') as file:
         writer = csv.writer(file)
@@ -125,7 +162,11 @@ def logging_metrics(data, file_name: str = None, path: str = None, field: list =
             writer.writerow(listdata)
 
 
-preprocess = T.Compose([
+def plot_metric():
+    pass
+
+
+preprocess_resnet18 = T.Compose([
     T.Resize(256),
     T.CenterCrop(224),
     T.ToTensor(),
@@ -135,38 +176,36 @@ preprocess = T.Compose([
     )
 ])
 
-if __name__ == "__main__":
 
-    num_epochs = 15
-    batch_size = 64
-    learning_rate = 0.0005
-    k_folds_num = 5
+def train_model(
+        dataset_path: str,
+        num_epochs: int = 30,
+        batch_size: int = 64,
+        learning_rate: float = 0.0005,
+        k_folds_num: int = 6,
+        momentum: float = 0.9,
+        weight_decay: float = 0.0005,
+        preprocess=None,
+        device=None,
+        optimizer=None,
+        criterion=None,
+        model=None,
+
+):
     # Device configuration
-    device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-    model = resnet18(num_classes=10).to(device)
+    if preprocess is None:
+        preprocess = preprocess_resnet18
+    if device is None:
+        device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+    if criterion is None:
+        criterion = torch.nn.CrossEntropyLoss()
+    if model is None:
+        model = resnet18(num_classes=10).to(device)
+    if optimizer is None:
+        optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
 
-
-    # Loss and optimizer
-    criterion = torch.nn.CrossEntropyLoss()
-    optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=0.0005, momentum=0.9)
-    # optimizer = torch.optim.RMSprop(model.parameters(), lr=learning_rate, weight_decay=0.005, momentum=0.9)
-
-
-
-    # train_loader = data_loader(data_dir='dataset',
-    #                            batch_size=batch_size,
-    #                            preprocess=preprocess,
-    #                            kfold=True)
-
-    dataset = DatasetFonts(path='dataset',
-                           preprocess=preprocess,
-                           train=True
-                           )
-
-    test_loader = data_loader(data_dir='dataset',
-                              batch_size=64,
-                              preprocess=preprocess,
-                              test=True)
+    dataset = DatasetFonts(path=dataset_path, preprocess=preprocess, train=True)
+    test_loader = data_loader(dataset_path=dataset_path, batch_size=batch_size, preprocess=preprocess, test=True)
 
     # metric
     metric_Accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=10)
@@ -185,8 +224,6 @@ if __name__ == "__main__":
     metric_Recall.to(device)
     metric_F1.to(device)
 
-
-
     kfold = KFold(n_splits=k_folds_num, shuffle=True)
 
     # Start print
@@ -203,12 +240,8 @@ if __name__ == "__main__":
         test_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
 
         # Define data loaders for training and testing data in this fold
-        trainloader = torch.utils.data.DataLoader(dataset,
-                                                  batch_size=batch_size,
-                                                  sampler=train_subsampler)
-        validloader = torch.utils.data.DataLoader(dataset,
-                                                  batch_size=batch_size,
-                                                  sampler=test_subsampler)
+        trainloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=train_subsampler)
+        validloader = torch.utils.data.DataLoader(dataset, batch_size=batch_size, sampler=test_subsampler)
 
         total_step = len(trainloader)
         for epoch in range(num_epochs):
@@ -223,7 +256,7 @@ if __name__ == "__main__":
                 # Forward pass
                 outputs = model(images)
                 loss = criterion(outputs, labels)
-                # writer.add_scalar("Loss/train", loss.item(), epoch)
+
                 # Backward and optimize
                 optimizer.zero_grad()
                 loss.backward()
@@ -254,13 +287,16 @@ if __name__ == "__main__":
                     del images, labels, outputs
 
                 print('Accuracy of the network on the {} validation images: {} %'.format(100, 100 * correct / total))
+
                 Accuracy_epoch = round(metric_Accuracy.compute().item(), 2)
                 Precision_epoch = metric_Precision.compute()
                 Recall_epoch = metric_Recall.compute()
                 F1_epoch = metric_F1.compute()
+                #
                 values_Precision.append(Precision_epoch)
                 values_Recall.append(Recall_epoch)
                 values_F1.append(F1_epoch)
+
                 # print(f"Accuracy on all data: {Accuracy_epoch}")
                 # print(f"Precision on all data: {pr}")
                 # print(f"Recal on all data: {re}")
@@ -269,8 +305,7 @@ if __name__ == "__main__":
                 metric_Recall.reset()
                 metric_F1.reset()
 
-
-    #Test model
+    # Test model
     with torch.no_grad():
         correct = 0
         total = 0
@@ -293,27 +328,82 @@ if __name__ == "__main__":
 
     logging_metrics(data=values_Precision,
                     file_name="Precision",
-                    field=class_list)
+                    field=class_list,
+                    type_metric="val")
 
     logging_metrics(data=values_Recall,
                     file_name="Recall",
-                    field=class_list)
+                    field=class_list,
+                    type_metric="val")
 
     logging_metrics(data=values_F1,
                     file_name="F1",
-                    field=class_list)
+                    field=class_list,
+                    type_metric="val")
 
     torch.save(model.state_dict(), "weights.pth")
 
-    # model.fc = torch.nn.Linear(in_features=512, out_features=10, bias=True)
 
-    # model.eval()
-    # preprocess = weights.transforms()
-    #
-    # # Step 3: Apply inference preprocessing transforms
-    # batch = preprocess(img).unsqueeze(0)
-    #
-    # # Step 4: Use the model and print the predicted category
-    # prediction = model(batch).squeeze(0).softmax(0)
-    # class_id = prediction.argmax().item()
-    # print()
+def parse_opt():
+    """Parse command line arguments."""
+    import argparse
+    parser = argparse.ArgumentParser()
+
+    weight_decay: float = 0.0005,
+
+    parser.add_argument(
+        "--dataset_path",
+        type=str,
+        default="dataset",
+        help="fonts folder"
+    )
+    parser.add_argument(
+        "--num_epochs",
+        type=int,
+        default=10,
+        help="the path to the directory where the dataset will be generated"
+    )
+    parser.add_argument(
+        "--batch_size",
+        type=int,
+        default=16,
+        help="the number of instances of one class"
+    )
+    parser.add_argument(
+        "--learning_rate",
+        type=float,
+        default=0.0005,
+        help="Define skewing angle of the generated text. In positive degrees"
+    )
+    parser.add_argument(
+        "--k_folds_num",
+        type=int,
+        default=5,
+        help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
+    parser.add_argument(
+        "--momentum",
+        type=float,
+        default=0.9,
+        help="Define the text's color, should be either a single hex color or a range in the ?,? format.",
+    )
+    parser.add_argument(
+        "--weight_decay",
+        type=float,
+        default=0.0005,
+        help="Define what kind of background to use. 0: Gaussian Noise, 1: Plain white, 2: Quasicrystal, 3: Image"
+    )
+
+    return parser.parse_args()
+
+
+def main(
+        opt
+):
+    train_model(**vars(opt))
+
+
+if __name__ == "__main__":
+    opt = parse_opt()
+    main(opt)
+
+

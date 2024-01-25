@@ -1,16 +1,18 @@
-# The generators use the same arguments as the CLI, only as parameters
+import argparse
 import os
-from pathlib import Path
 import warnings
+from pathlib import Path
+
 from RandomWordGenerator import RandomWord
 from trdg.generators import GeneratorFromStrings
-import argparse
 
 
-def generate_data(count: int,
-                  max_word_size: int = 5,
-                  fonts: list = None,
-                  file_path: str = None):
+def generate_data(
+        max_word_size: int = 5,
+        fonts: list = None,
+        file_path: str = None,
+        **kwargs
+):
     if fonts is None:
         fonts = []
 
@@ -21,13 +23,12 @@ def generate_data(count: int,
                     special_chars=r"@_!#$%^&*()<>?/\|}{~:",
                     include_special_chars=False)
 
-    x = [rw.generate() for _ in range(count)]
+    x = [rw.generate() for _ in range(kwargs["count"])]
 
     generator = GeneratorFromStrings(strings=x,
-                                     count=count,
                                      fonts=fonts,
-                                     skewing_angle=5,
-                                     random_skew=True, )
+                                     **kwargs
+                                     )
 
     img_name = 0
     for img, text in generator:
@@ -38,9 +39,10 @@ def generate_data(count: int,
             warnings.warn("Еrror generating an image in the library: trdg")
 
 
-def get_fronts_path(path: str) -> dict:
-    dir_path = os.path.normpath(os.getcwd() + '\\' + path)
-
+def get_fronts_path(
+        path: str
+) -> dict:
+    dir_path = os.path.abspath(path)
     path_dict = {}
     print("Found fonts")
     print('--------------------------------')
@@ -53,17 +55,21 @@ def get_fronts_path(path: str) -> dict:
     return path_dict
 
 
-def generate_dataset(count: int,
-                     fonts_path: str,
-                     file_path: str = None
-                     ):
-    def generate_folder(path_dict, folder):
+def generate_dataset(
+        fonts_path: str,
+        file_path: str = None,
+        **kwargs
+):
+    def generate_folder(
+            path_dict: dict,
+            folder: str
+    ):
         for key in path_dict:
             font = [path_dict[key]]
             path = folder + "/" + key
             if not os.path.isdir(path):
                 os.mkdir(path)
-            generate_data(count=count, file_path=path, fonts=font)
+            generate_data(file_path=path, fonts=font, **kwargs)
 
     if file_path is None:
         file_path = os.getcwd()
@@ -87,24 +93,57 @@ def generate_dataset(count: int,
 def parse_opt():
     """Parse command line arguments."""
     parser = argparse.ArgumentParser()
-    parser.add_argument("--fonts_path", type=str, default="fonts", help="fonts folder")
-    parser.add_argument("--file_path", type=str, default=None, help="file_path folder")
-    parser.add_argument("--count", type=int, default=50, help="file_path folder")
-    # parser.add_argument("--source", type=str, required=True, help="video file path")
-    # parser.add_argument("--view-img", action="store_true", help="show results")
-    # parser.add_argument("--save-img", action="store_true", help="save results")
-    # parser.add_argument("--exist-ok", action="store_true", help="existing project/name ok, do not increment")
+    parser.add_argument(
+        "--fonts_path",
+        type=str,
+        default="fonts",
+        help="fonts folder"
+    )
+    parser.add_argument(
+        "--file_path",
+        type=str,
+        default=None,
+        help="the path to the directory where the dataset will be generated"
+    )
+    parser.add_argument(
+        "--count",
+        type=int,
+        default=100,
+        help="the number of instances of one class"
+    )
+    parser.add_argument(
+        "--skewing_angle",
+        type=int,
+        default=5,
+        help="Define skewing angle of the generated text. In positive degrees"
+    )
+    parser.add_argument(
+        "--random_skew",
+        type=bool,
+        default=True,
+        help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
+    parser.add_argument(
+        "--text_color",
+        type=str,
+        nargs="?",
+        default="#000000,#888888",
+        help="Define the text's color, should be either a single hex color or a range in the ?,? format.",
+    )
+    parser.add_argument(
+        "--background_type",
+        type=int,
+        nargs="?",
+        default=1,
+        help="Define what kind of background to use. 0: Gaussian Noise, 1: Plain white, 2: Quasicrystal, 3: Image"
+    )
     return parser.parse_args()
 
 
-def main(opt):
+def main(
+        opt
+):
     generate_dataset(**vars(opt))
 
-
-# if __name__ == "__main__":
-#
-#     # generate_data(count=5 ,file_path="data")
-#     generate_dataset(fonts_path="fonts", count=100)
 
 if __name__ == "__main__":
     opt = parse_opt()
