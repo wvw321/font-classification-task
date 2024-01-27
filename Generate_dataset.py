@@ -2,7 +2,6 @@ import argparse
 import os
 import warnings
 from pathlib import Path
-
 from RandomWordGenerator import RandomWord
 from trdg.generators import GeneratorFromStrings
 

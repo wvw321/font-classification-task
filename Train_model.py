@@ -185,8 +185,14 @@ preprocess_resnet18 = T.Compose([
 ])
 
 
+def avg_metric(data):
+    return data.sum() / len(data)
+
+
 def train_model(
         dataset_path: str,
+        save_model: bool,
+        save_model_path: str,
         num_epochs: int = 30,
         batch_size: int = 64,
         learning_rate: float = 0.0005,
@@ -212,6 +218,8 @@ def train_model(
     if optimizer is None:
         optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, weight_decay=weight_decay, momentum=momentum)
 
+    kfold = KFold(n_splits=k_folds_num, shuffle=True)
+
     print('--------------------------------')
     print('--------------------------------')
     print("Train param:\n"
@@ -226,36 +234,44 @@ def train_model(
                                                                                                            )
           )
     print('--------------------------------')
+    print('--------------------------------')
     dataset = DatasetFonts(path=dataset_path, preprocess=preprocess, train=True)
     test_loader = data_loader(dataset_path=dataset_path, batch_size=batch_size, preprocess=preprocess, test=True)
 
     # metric
-    metric_Accuracy = torchmetrics.classification.Accuracy(task="multiclass", num_classes=10)
-    metric_Precision = torchmetrics.classification.Precision(task="multiclass", average=None, num_classes=10)
-    metric_Recall = torchmetrics.classification.Recall(task="multiclass", average=None, num_classes=10)
-    metric_F1 = torchmetrics.classification.F1Score(task="multiclass", average=None, num_classes=10)
+    metric_accuracy = torchmetrics.classification.Accuracy(task="multiclass", average="none", num_classes=10)
+    metric_precision = torchmetrics.classification.Precision(task="multiclass", average="none", num_classes=10)
+    metric_recall = torchmetrics.classification.Recall(task="multiclass", average="none", num_classes=10)
+    metric_f1 = torchmetrics.classification.F1Score(task="multiclass", average="none", num_classes=10)
 
-    values_Accuracy = []
-    values_Precision = []
-    values_Recall = []
-    values_F1 = []
-    values_Loss = []
+    def metric_update(
+            predicted_,
+            target_
+    ):
+        metric_accuracy.update(predicted_, target_)
+        metric_precision(predicted_, target_)
+        metric_recall(predicted_, target_)
+        metric_f1(predicted_, target_)
 
-    metric_Accuracy.to(device)
-    metric_Precision.to(device)
-    metric_Recall.to(device)
-    metric_F1.to(device)
+    values_loss = []
 
-    kfold = KFold(n_splits=k_folds_num, shuffle=True)
+    values_accuracy = []
+    values_accuracy_avg = []
+    values_precision = []
+    values_precision_avg = []
+    values_recall = []
+    values_recall_avg = []
+    values_f1 = []
+    values_f1_avg = []
 
-    # Start print
+    metric_accuracy.to(device)
+    metric_precision.to(device)
+    metric_recall.to(device)
+    metric_f1.to(device)
 
     # K-fold Cross Validation model evaluation
 
     for fold, (train_ids, test_ids) in enumerate(kfold.split(dataset)):
-        print('--------------------------------')
-        print(f'FOLD {fold}')
-        print('------------')
 
         train_subsampler = torch.utils.data.SubsetRandomSampler(train_ids)
         val_subsampler = torch.utils.data.SubsetRandomSampler(test_ids)
@@ -289,48 +305,91 @@ def train_model(
                 values_loss_epoch.append(loss.to("cpu"))
 
             avg_loss_epoch = sum(values_loss_epoch) / len(values_loss_epoch)
-            print('Epoch [{}/{}]\nTrain: Loss - {:.4f}'.format(epoch + 1,
-                                                               num_epochs,
-                                                               avg_loss_epoch))
-            values_Loss.append(avg_loss_epoch)
+            print('Fold [{}/{}] Epoch [{}/{}]\nTrain: \nLoss - {:.4f}'.format(fold + 1,
+                                                                              k_folds_num,
+                                                                              epoch + 1,
+                                                                              num_epochs,
+                                                                              avg_loss_epoch))
+            values_loss.append(avg_loss_epoch)
 
             # Validation
             with torch.no_grad():
-                correct = 0
-                total = 0
+
                 model.eval()
                 for images, labels in valloader:
                     images = images.to(device)
                     labels = labels.to(device)
                     outputs = model(images)
                     _, predicted = torch.max(outputs.data, 1)
-                    total += labels.size(0)
                     _, target = torch.max(labels.data, 1)
-                    correct += (predicted == target).sum().item()
-                    metric_Accuracy.update(predicted, target)
-                    metric_Precision.update(predicted, target)
-                    metric_Recall.update(predicted, target)
-                    metric_F1.update(predicted, target)
+
+                    metric_update(predicted, target)
+
                     del images, labels, outputs
 
-                Accuracy_epoch = round(metric_Accuracy.compute().item(), 2) * 100
-                Precision_epoch = metric_Precision.compute()
-                Recall_epoch = metric_Recall.compute()
-                F1_epoch = metric_F1.compute()
-                #
-                values_Precision.append(Precision_epoch)
-                values_Recall.append(Recall_epoch)
-                values_F1.append(F1_epoch)
-                values_Accuracy.append(Accuracy_epoch)
-                print('Val: Acc - {} %'.format(Accuracy_epoch))
+                accuracy_epoch = avg_metric(metric_accuracy.compute())
+                precision_epoch = avg_metric(metric_precision.compute())
+                recall_epoch = avg_metric(metric_recall.compute())
+                f1_epoch = avg_metric(metric_f1.compute())
+
+                values_precision.append(metric_accuracy.compute())
+                values_recall.append(metric_precision.compute())
+                values_f1.append(metric_f1.compute())
+                values_accuracy.append(metric_accuracy.compute())
+
+                values_precision_avg.append(precision_epoch)
+                values_recall_avg.append(recall_epoch)
+                values_f1_avg.append(f1_epoch)
+                values_accuracy_avg.append(accuracy_epoch)
+
+                print('Val: \nAcc - {:.1f} %'.format(accuracy_epoch.item() * 100))
+                print('Precision - {:.2f} '.format(precision_epoch.item()))
+                print('Recall- {:.2f} '.format(recall_epoch.item()))
+                print('F1- {:.2f} '.format(f1_epoch.item()))
                 print('------------')
-                # print(f"Accuracy on all data: {Accuracy_epoch}")
-                # print(f"Precision on all data: {pr}")
-                # print(f"Recal on all data: {re}")
-                metric_Accuracy.reset()
-                metric_Precision.reset()
-                metric_Recall.reset()
-                metric_F1.reset()
+
+                metric_accuracy.reset()
+                metric_precision.reset()
+                metric_recall.reset()
+                metric_f1.reset()
+
+    metric_precision.plot(values_precision)
+    metric_recall.plot(values_recall)
+    class_list = DatasetFonts.get_class_list(dataset_path)
+
+    logging_metrics(data=values_precision,
+                    file_name="Precision",
+                    field=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_recall,
+                    file_name="Recall",
+                    field=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_f1,
+                    file_name="F1",
+                    field=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_loss,
+                    file_name="Loss",
+                    type_metric="train")
+
+    logging_metrics(data=values_precision_avg,
+                    file_name="Precision",
+                    field=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_recall_avg,
+                    file_name="Recall",
+                    field=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_f1_avg,
+                    file_name="F1",
+                    field=class_list,
+                    type_metric="val")
 
     # Test model
     with torch.no_grad():
@@ -343,37 +402,37 @@ def train_model(
             outputs = model(images)
             _, predicted = torch.max(outputs.data, 1)
             _, target = torch.max(labels.data, 1)
+            metric_update(predicted, target)
             total += labels.size(0)
             correct += (predicted == target).sum().item()
+
             del images, labels, outputs
+
+        accuracy_epoch = avg_metric(metric_accuracy.compute())
+        precision_epoch = avg_metric(metric_precision.compute())
+        recall_epoch = avg_metric(metric_recall.compute())
+        f1_epoch = avg_metric(metric_f1.compute())
+
         print('--------------------------------')
         print('--------------------------------')
-        print('Accuracy of the network on the {} test images: {} %'.format(1000, 100 * correct / total))
+        print('Test: \nAcc - {:.1f} %'.format(accuracy_epoch.item() * 100))
+        print('Precision - {:.2f} '.format(precision_epoch.item()))
+        print('Recall- {:.2f} '.format(recall_epoch.item()))
+        print('F1- {:.2f} '.format(f1_epoch.item()))
+        print('--------------------------------')
+        print('--------------------------------')
 
-    metric_Precision.plot(values_Precision)
-    metric_Recall.plot(values_Recall)
-    class_list = DatasetFonts.get_class_list(dataset_path)
+        # print('Test')
+        # print('Accuracy of the network on the {} test images: {} %'.format(1000, 100 * correct / total))
 
-    logging_metrics(data=values_Precision,
-                    file_name="Precision",
-                    field=class_list,
-                    type_metric="val")
-
-    logging_metrics(data=values_Recall,
-                    file_name="Recall",
-                    field=class_list,
-                    type_metric="val")
-
-    logging_metrics(data=values_F1,
-                    file_name="F1",
-                    field=class_list,
-                    type_metric="val")
-
-    logging_metrics(data=values_Loss,
-                    file_name="Loss",
-                    type_metric="train")
-
-    torch.save(model.state_dict(), "weights.pth")
+    if save_model is True:
+        if save_model_path is None:
+            torch.save(model.state_dict(), "weights.pth")
+            print("Model save as : " + os.getcwd() + "weights.pth")
+        else:
+            torch.save(model.state_dict(), save_model_path + "weights.pth")
+            print("Model save as : " + save_model_path + "weights.pth")
+    return model
 
 
 def parse_opt():
@@ -385,12 +444,17 @@ def parse_opt():
         "--dataset_path",
         type=str,
         default="dataset",
-        help="fonts folder"
+        help="dataset folder"
     )
+    parser.add_argument(
+        "--k_folds_num",
+        type=int,
+        default=5,
+        help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
     parser.add_argument(
         "--num_epochs",
         type=int,
-        default=10,
+        default=5,
         help="the path to the directory where the dataset will be generated"
     )
     parser.add_argument(
@@ -405,11 +469,7 @@ def parse_opt():
         default=0.0005,
         help="Define skewing angle of the generated text. In positive degrees"
     )
-    parser.add_argument(
-        "--k_folds_num",
-        type=int,
-        default=5,
-        help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
+
     parser.add_argument(
         "--momentum",
         type=float,
@@ -422,7 +482,18 @@ def parse_opt():
         default=0.0005,
         help="Define what kind of background to use. 0: Gaussian Noise, 1: Plain white, 2: Quasicrystal, 3: Image"
     )
-
+    parser.add_argument(
+        "--save_model",
+        type=bool,
+        default=True,
+        help="Define what kind of background to use. 0: Gaussian Noise, 1: Plain white, 2: Quasicrystal, 3: Image"
+    )
+    parser.add_argument(
+        "--save_model_path",
+        type=str,
+        default=None,
+        help="Define what kind of background to use. 0: Gaussian Noise, 1: Plain white, 2: Quasicrystal, 3: Image"
+    )
     return parser.parse_args()
 
 
