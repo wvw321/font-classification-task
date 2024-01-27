@@ -11,7 +11,7 @@ from torch.utils.data import Dataset
 from torch.utils.data.sampler import SubsetRandomSampler
 from torchvision.models import resnet18
 from sklearn.model_selection import KFold
-
+from matplotlib import pyplot as plt
 
 class DatasetFonts(Dataset):
 
@@ -400,13 +400,19 @@ def train_model(
                     file_name="Loss",
                     type_metric="train")
 
-    # metric_accuracy.plot(values_loss)[0].savefig('metrics/train/values_loss.png')
+
+
+
 
     metric_precision.plot(values_precision)[0].savefig('metrics/val/precision.png')
     metric_accuracy.plot(values_accuracy)[0].savefig('metrics/val/accuracy.png')
     metric_recall.plot(values_recall)[0].savefig('metrics/val/recall.png')
     metric_f1.plot(values_f1)[0].savefig('metrics/val/values_f1.png')
 
+    plt.figure()
+    plt.plot(list(map(lambda x: x.item(), values_loss_train)))[0].figure.savefig('metrics/train/loss.png')
+    plt.figure()
+    plt.plot(list(map(lambda x: x.item(), values_loss_val)))[0].figure.savefig('metrics/val/loss.png')
     metric_precision.plot(values_precision_avg)[0].savefig('metrics/val/precision_avg.png')
     metric_accuracy.plot(values_accuracy_avg)[0].savefig('metrics/val/accuracy_avg.png')
     metric_recall.plot(values_recall_avg)[0].savefig('metrics/val/recall_avg.png')
