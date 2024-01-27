@@ -118,8 +118,7 @@ def parse_opt():
     )
     parser.add_argument(
         "--random_skew",
-        type=bool,
-        default=True,
+        action='store_true',
         help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
     parser.add_argument(
         "--text_color",

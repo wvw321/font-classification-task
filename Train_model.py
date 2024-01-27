@@ -116,10 +116,9 @@ def data_loader(
 
 def logging_metrics(
         data,
-        file_name:
-        str = None,
+        file_name: str = None,
         path: str = None,
-        field: list = None,
+        class_list: list = None,
         type_metric: str = None,
 
 ):
@@ -154,20 +153,19 @@ def logging_metrics(
 
     with open(file_name, 'w', newline='') as file:
         writer = csv.writer(file)
-        if field is not None:
-            writer.writerow(field)
+        if class_list is not None:
+            writer.writerow(class_list)
         else:
             writer.writerow(["avg"])
-        for epoxdata in data:
-            if isinstance(epoxdata, torch.Tensor):
-                listdata = epoxdata.tolist()
-                if isinstance(listdata, list):
-                    writer.writerow(listdata)
+        for epoch_data in data:
+            if isinstance(epoch_data, torch.Tensor):
+                list_data = epoch_data.tolist()
+                if isinstance(list_data, list):
+                    writer.writerow(list_data)
                 else:
-                    writer.writerow([listdata])
+                    writer.writerow([list_data])
             else:
-                print([epoxdata])
-                writer.writerow([epoxdata])
+                writer.writerow(epoch_data)
 
 
 def plot_metric():
@@ -222,17 +220,19 @@ def train_model(
 
     print('--------------------------------')
     print('--------------------------------')
-    print("Train param:\n"
-          "Device-{}\n"
-          "batch_size {},num_epochs {},learning_rate {},k_folds_num {},momentum {},weight_decay {}".format(device,
-                                                                                                           batch_size,
-                                                                                                           num_epochs,
-                                                                                                           learning_rate,
-                                                                                                           k_folds_num,
-                                                                                                           momentum,
-                                                                                                           weight_decay
-                                                                                                           )
-          )
+    print(
+        "Train param:\n"
+        "    Device-{}\n"
+        "    batch_size {},num_epochs {},learning_rate {},k_folds_num {},momentum {},weight_decay {}".format(
+            device,
+            batch_size,
+            num_epochs,
+            learning_rate,
+            k_folds_num,
+            momentum,
+            weight_decay
+        )
+    )
     print('--------------------------------')
     print('--------------------------------')
     dataset = DatasetFonts(path=dataset_path, preprocess=preprocess, train=True)
@@ -253,7 +253,8 @@ def train_model(
         metric_recall(predicted_, target_)
         metric_f1(predicted_, target_)
 
-    values_loss = []
+    values_loss_train = []
+    values_loss_val = []
 
     values_accuracy = []
     values_accuracy_avg = []
@@ -283,7 +284,9 @@ def train_model(
         total_step = len(trainloader)
         for epoch in range(num_epochs):
             model.train()
-            values_loss_epoch = []
+            values_loss_epoch_train = []
+            values_loss_epoch_val = []
+
             # Train
             for i, (images, labels) in enumerate(trainloader):
                 # Move tensors to the configured device
@@ -302,15 +305,16 @@ def train_model(
                 # print('Epoch [{}/{}], Step [{}/{}], Loss: {:.4f}'
                 #       .format(epoch + 1, num_epochs, i + 1, total_step, loss.item()))
 
-                values_loss_epoch.append(loss.to("cpu"))
+                values_loss_epoch_train.append(loss.to("cpu"))
 
-            avg_loss_epoch = sum(values_loss_epoch) / len(values_loss_epoch)
-            print('Fold [{}/{}] Epoch [{}/{}]\nTrain: \nLoss - {:.4f}'.format(fold + 1,
-                                                                              k_folds_num,
-                                                                              epoch + 1,
-                                                                              num_epochs,
-                                                                              avg_loss_epoch))
-            values_loss.append(avg_loss_epoch)
+            avg_loss_epoch_train = sum(values_loss_epoch_train) / len(values_loss_epoch_train)
+            print('Fold [{}/{}] Epoch [{}/{}]\n'
+                  'Train: \n    Loss - {:.4f}'.format(fold + 1,
+                                                      k_folds_num,
+                                                      epoch + 1,
+                                                      num_epochs,
+                                                      avg_loss_epoch_train))
+            values_loss_train.append(avg_loss_epoch_train)
 
             # Validation
             with torch.no_grad():
@@ -324,14 +328,18 @@ def train_model(
                     _, target = torch.max(labels.data, 1)
 
                     metric_update(predicted, target)
-
+                    loss = criterion(outputs, labels)
+                    values_loss_epoch_val.append(loss.to("cpu"))
                     del images, labels, outputs
+
+                avg_loss_epoch_val = sum(values_loss_epoch_val) / len(values_loss_epoch_val)
 
                 accuracy_epoch = avg_metric(metric_accuracy.compute())
                 precision_epoch = avg_metric(metric_precision.compute())
                 recall_epoch = avg_metric(metric_recall.compute())
                 f1_epoch = avg_metric(metric_f1.compute())
 
+                values_loss_val.append(avg_loss_epoch_val)
                 values_precision.append(metric_accuracy.compute())
                 values_recall.append(metric_precision.compute())
                 values_f1.append(metric_f1.compute())
@@ -342,10 +350,12 @@ def train_model(
                 values_f1_avg.append(f1_epoch)
                 values_accuracy_avg.append(accuracy_epoch)
 
-                print('Val: \nAcc - {:.1f} %'.format(accuracy_epoch.item() * 100))
-                print('Precision - {:.2f} '.format(precision_epoch.item()))
-                print('Recall- {:.2f} '.format(recall_epoch.item()))
-                print('F1- {:.2f} '.format(f1_epoch.item()))
+                print('Val:')
+                print('    Loss - {:.4f} '.format(avg_loss_epoch_val.item()))
+                print('    Acc - {:.1f} %'.format(accuracy_epoch.item() * 100))
+                print('    Precision - {:.2f} '.format(precision_epoch.item()))
+                print('    Recall- {:.2f} '.format(recall_epoch.item()))
+                print('    F1- {:.2f} '.format(f1_epoch.item()))
                 print('------------')
 
                 metric_accuracy.reset()
@@ -353,49 +363,62 @@ def train_model(
                 metric_recall.reset()
                 metric_f1.reset()
 
-    metric_precision.plot(values_precision)
-    metric_recall.plot(values_recall)
     class_list = DatasetFonts.get_class_list(dataset_path)
 
     logging_metrics(data=values_precision,
                     file_name="Precision",
-                    field=class_list,
+                    class_list=class_list,
                     type_metric="val")
 
     logging_metrics(data=values_recall,
                     file_name="Recall",
-                    field=class_list,
+                    class_list=class_list,
                     type_metric="val")
 
     logging_metrics(data=values_f1,
                     file_name="F1",
-                    field=class_list,
+                    class_list=class_list,
                     type_metric="val")
 
-    logging_metrics(data=values_loss,
-                    file_name="Loss",
-                    type_metric="train")
-
     logging_metrics(data=values_precision_avg,
-                    file_name="Precision",
-                    field=class_list,
+                    file_name="Precision_avg",
                     type_metric="val")
 
     logging_metrics(data=values_recall_avg,
-                    file_name="Recall",
-                    field=class_list,
+                    file_name="Recall_avg",
                     type_metric="val")
 
     logging_metrics(data=values_f1_avg,
-                    file_name="F1",
-                    field=class_list,
+                    file_name="F1_avg",
                     type_metric="val")
 
+    logging_metrics(data=values_loss_val,
+                    file_name="Loss",
+                    type_metric="val")
+
+    logging_metrics(data=values_loss_train,
+                    file_name="Loss",
+                    type_metric="train")
+
+    # metric_accuracy.plot(values_loss)[0].savefig('metrics/train/values_loss.png')
+
+    metric_precision.plot(values_precision)[0].savefig('metrics/val/precision.png')
+    metric_accuracy.plot(values_accuracy)[0].savefig('metrics/val/accuracy.png')
+    metric_recall.plot(values_recall)[0].savefig('metrics/val/recall.png')
+    metric_f1.plot(values_f1)[0].savefig('metrics/val/values_f1.png')
+
+    metric_precision.plot(values_precision_avg)[0].savefig('metrics/val/precision_avg.png')
+    metric_accuracy.plot(values_accuracy_avg)[0].savefig('metrics/val/accuracy_avg.png')
+    metric_recall.plot(values_recall_avg)[0].savefig('metrics/val/recall_avg.png')
+    metric_f1.plot(values_f1_avg)[0].savefig('metrics/val/values_f1_avg.png')
+
     # Test model
+
     with torch.no_grad():
-        correct = 0
-        total = 0
+        metric_roc = torchmetrics.classification.MulticlassROC(num_classes=10, average=None)
+        values_loss_epoch_test = []
         model.eval()
+
         for images, labels in test_loader:
             images = images.to(device)
             labels = labels.to(device)
@@ -403,11 +426,13 @@ def train_model(
             _, predicted = torch.max(outputs.data, 1)
             _, target = torch.max(labels.data, 1)
             metric_update(predicted, target)
-            total += labels.size(0)
-            correct += (predicted == target).sum().item()
+            metric_roc.update(outputs, target)
+            loss = criterion(outputs, labels)
+            values_loss_epoch_val.append(loss.to("cpu"))
 
             del images, labels, outputs
 
+        avg_loss_epoch_val = sum(values_loss_epoch_val) / len(values_loss_epoch_val)
         accuracy_epoch = avg_metric(metric_accuracy.compute())
         precision_epoch = avg_metric(metric_precision.compute())
         recall_epoch = avg_metric(metric_recall.compute())
@@ -415,27 +440,36 @@ def train_model(
 
         print('--------------------------------')
         print('--------------------------------')
-        print('Test: \nAcc - {:.1f} %'.format(accuracy_epoch.item() * 100))
-        print('Precision - {:.2f} '.format(precision_epoch.item()))
-        print('Recall- {:.2f} '.format(recall_epoch.item()))
-        print('F1- {:.2f} '.format(f1_epoch.item()))
+        print('Test:')
+        print('    Loss - {:.4f} '.format(avg_loss_epoch_val.item()))
+        print('    Acc - {:.1f} %'.format(accuracy_epoch.item() * 100))
+        print('    Precision - {:.2f} '.format(precision_epoch.item()))
+        print('    Recall- {:.2f} '.format(recall_epoch.item()))
+        print('    F1- {:.2f} '.format(f1_epoch.item()))
         print('--------------------------------')
         print('--------------------------------')
 
-        # print('Test')
-        # print('Accuracy of the network on the {} test images: {} %'.format(1000, 100 * correct / total))
+        all_test_metric = [[avg_loss_epoch_val.item(), accuracy_epoch.item() * 100,
+                           precision_epoch.item(), recall_epoch.item(), f1_epoch.item()]]
+        name_list = ["Loss", "Acc", "Precision", "Recall", "F1"]
+        logging_metrics(data=all_test_metric,
+                        file_name="all_test_metric",
+                        class_list=name_list,
+                        type_metric="test")
+
+        metric_roc.plot(score=True)[0].savefig('metrics/test/roc.png')
 
     if save_model is True:
         if save_model_path is None:
             torch.save(model.state_dict(), "weights.pth")
-            print("Model save as : " + os.getcwd() + "weights.pth")
+            print("Model save as : " + os.getcwd() + "\weights.pth")
         else:
-            torch.save(model.state_dict(), save_model_path + "weights.pth")
-            print("Model save as : " + save_model_path + "weights.pth")
-    return model
+            torch.save(model.state_dict(), save_model_path + "\weights.pth")
+            print("Model save as : " + save_model_path + "\weights.pth")
 
 
-def parse_opt():
+def parse_opt(
+):
     """Parse command line arguments."""
     import argparse
     parser = argparse.ArgumentParser()
