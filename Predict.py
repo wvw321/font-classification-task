@@ -34,7 +34,7 @@ def run(
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
     model = resnet18(num_classes=10)
-    model.load_state_dict(torch.load(weights))
+    model.load_state_dict(torch.load(weights,map_location=device))
     model.to(device)
     model.eval()
 
