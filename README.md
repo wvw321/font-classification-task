@@ -1,10 +1,13 @@
 # Тестовое задание: генерация и распознование шрифтов 
 ## Установка зависимостей 
-Версия Python 3.10
+Версия - Python 3.10
 
+Установка  [Torch](https://pytorch.org/get-started/locally/) 
+версии cuda. Нужно предварительно установить ,если нужен запуск и обучение на gpu.
 ```
 pip install -r requirements.txt
 ```
+
 ## Генератор датасета шрифтов 
 [Generate_dataset.py](https://github.com/wvw321/font-classification-task/blob/main/Generate_dataset.py)
 
