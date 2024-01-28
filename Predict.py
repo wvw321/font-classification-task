@@ -3,8 +3,8 @@ import torch
 from PIL import Image
 from torchvision.models import resnet18
 
-from Train_model import DatasetFonts
-from Train_model import preprocess_resnet18
+from Train import DatasetFonts
+from Train import preprocess_resnet18
 
 
 def print_result(
