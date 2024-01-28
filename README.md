@@ -6,10 +6,54 @@
 pip install -r requirements.txt
 ```
 ## Генератор датасета шрифтов 
-Generate_dataset.py
+[Generate_dataset.py](https://github.com/wvw321/font-classification-task/blob/main/Generate_dataset.py)
 
 Основная чать генератора использует библиотеку [trdg](https://github.com/Belval/TextRecognitionDataGenerator/tree/master) 
 
+### Структура папки с шрифтами
+```
+fonts/
+|
+|-- font1/
+|   |-- font1.otf
+|   |
+|-- font2/
+|   |-- font2.ttf
+|-- .../
+|   |   |-- ...
+
+```
+
+ ### Структура  генерируемого датасета
+```
+Dataset/
+|
+|-- train/
+|   |-- class1/
+|   |   |-- 0.png
+|   |   |-- 1.png
+|   |   |-- ...
+|   |
+|   |-- class2/
+|   |   |-- 0.png
+|   |   |-- 1.png
+|   |   |-- ...
+|   |
+|   |-- ...
+|
+|-- test/
+|   |-- class1/
+|   |   |-- 0.png
+|   |   |-- 1.png
+|   |   |-- ...
+|   |
+|   |-- class2/
+|   |   |-- 0.png
+|   |   |-- 1.png
+|   |   |-- ...
+|   |
+|   |-- ...
+```
 
 ### Парамеры
 - `--fonts_path` -путь для папки со шрифтами 
@@ -26,18 +70,35 @@ Generate_dataset.py
 ```
 Generate_dataset.py --count 150
 ```
-## Модуть обучения 
+## Модуль обучения 
+[Train_model.py](https://github.com/wvw321/font-classification-task/blob/main/Run_model.py)
+### Парамеры
+
+- `--dataset_path` -путь до датасета 
+- `--k_folds_num` -количество на которое будет разделена обучающая выборка для кросс валидации  
+- `--num_epochs` -количество эпох на одну выборку
+- `--batch_size` - количество изображений в батче 
+- `--learning_rate` -темп обучения 
+- `--momentum` -   момент ипульса стохастического градиентного спуска(оптимизатор SGD по умолчанию)
+- `--weight_decay` - L_2 регуляризация
+- `--save_model` -  флаг сохронять ли модель
+- `--save_model_path` - путь сохранения модели ( по умолчанию дерриктория проекта)
+### Пример вызова 
+По умолчанию ищет model\weights.pth в дериктории скрипта 
+```
+Train_model.py  --num_epochs 5 --k_folds_num" 4 --dataset_path dataset --batch_size 16
+```
 ## Модуль распознования 
-Run_model.py
+[Run_model.py](https://github.com/wvw321/font-classification-task/blob/main/Train_model.py)
 ### Парамеры
 - `--img_path` -путь до изображения 
 - `--weights` - путь до фала весов (weights.pth)
 - `--class_list` - названия классов 
 - `--dataset_path` - названия классов можно получить указав путь до датасета
-### Пример вызова 
-По умолчанию ищет weights.pth в дериктории скрипта 
-
+  ### Пример вызова 
+По умолчанию ищет model\weights.pth в дериктории скрипта 
 ```
 Run_model.py  --img_path front.jpg
 ```
+
   
