@@ -467,8 +467,10 @@ def train_model(
 
     if save_model is True:
         if save_model_path is None:
-            torch.save(model.state_dict(), "weights.pth")
-            print("Model save as : " + os.getcwd() + "\weights.pth")
+            if not os.path.isdir("model"):
+                os.mkdir("model")
+            torch.save(model.state_dict(), "model\weights.pth")
+            print("Model save as : " + os.getcwd() + "model\weights.pth")
         else:
             torch.save(model.state_dict(), save_model_path + "\weights.pth")
             print("Model save as : " + save_model_path + "\weights.pth")
@@ -489,7 +491,7 @@ def parse_opt(
     parser.add_argument(
         "--k_folds_num",
         type=int,
-        default=5,
+        default=4,
         help="When set, the skew angle will be randomized between the value set with -k and it's opposite")
     parser.add_argument(
         "--num_epochs",

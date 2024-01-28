@@ -14,7 +14,7 @@ def print_result(
     data = [['id', 'class', '%'], ]
     count = 0
     for x in prediction:
-        x = round(x.item(), 3) * 100
+        x = round(x.item()* 100, 1)
         data.append([count, class_list[count], str(x)])
         count += 1
 
@@ -56,13 +56,14 @@ def parse_opt():
     parser.add_argument(
         "--img_path",
         type=str,
+        default='example/TanaUncialSP.jpg',
         help="path to image"
     )
 
     parser.add_argument(
         "--weights",
         type=str,
-        default="weights.pth",
+        default="model\weights.pth",
         help="path to image",
     )
 
