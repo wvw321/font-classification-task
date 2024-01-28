@@ -71,7 +71,7 @@ Dataset/
 Generate_dataset.py --count 150
 ```
 ## Модуль обучения 
-[Train_model.py](https://github.com/wvw321/font-classification-task/blob/main/Run_model.py)
+[Train_model.py](https://github.com/wvw321/font-classification-task/blob/main/Train.py)
 ### Парамеры
 
 - `--dataset_path` -путь до датасета 
@@ -86,19 +86,19 @@ Generate_dataset.py --count 150
 ### Пример вызова 
 По умолчанию ищет model\weights.pth в дериктории скрипта 
 ```
-Train_model.py  --num_epochs 5 --k_folds_num" 4 --dataset_path dataset --batch_size 16
+Train.py  --num_epochs 5 --k_folds_num 4 --dataset_path dataset --batch_size 16
 ```
 ## Модуль распознования 
-[Run_model.py](https://github.com/wvw321/font-classification-task/blob/main/Train_model.py)
+[Predict.py](https://github.com/wvw321/font-classification-task/blob/main/Predict.py)
 ### Парамеры
 - `--img_path` -путь до изображения 
 - `--weights` - путь до фала весов (weights.pth)
 - `--class_list` - названия классов 
 - `--dataset_path` - названия классов можно получить указав путь до датасета
   ### Пример вызова 
-По умолчанию ищет model\weights.pth в дериктории скрипта 
+По умолчанию ищет model\weights.pth в дериктории скрипта , и берет пример из example/
 ```
-Run_model.py  --img_path front.jpg
+Predict.py  --img_path front.jpg
 ```
 
   
