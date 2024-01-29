@@ -63,7 +63,7 @@ def parse_opt():
     parser.add_argument(
         "--weights",
         type=str,
-        default="model\weights.pth",
+        default="model\\trained_weights.pth",
         help="path to image",
     )
 

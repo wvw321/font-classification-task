@@ -13,6 +13,7 @@ from torchvision.models import resnet18
 from sklearn.model_selection import KFold
 from matplotlib import pyplot as plt
 
+
 class DatasetFonts(Dataset):
 
     def __init__(
@@ -365,6 +366,11 @@ def train_model(
 
     class_list = DatasetFonts.get_class_list(dataset_path)
 
+    logging_metrics(data=values_accuracy,
+                    file_name="Accuracy",
+                    class_list=class_list,
+                    type_metric="val")
+
     logging_metrics(data=values_precision,
                     file_name="Precision",
                     class_list=class_list,
@@ -377,6 +383,11 @@ def train_model(
 
     logging_metrics(data=values_f1,
                     file_name="F1",
+                    class_list=class_list,
+                    type_metric="val")
+
+    logging_metrics(data=values_accuracy_avg,
+                    file_name="Accuracy_avg",
                     class_list=class_list,
                     type_metric="val")
 
@@ -400,10 +411,6 @@ def train_model(
                     file_name="Loss",
                     type_metric="train")
 
-
-
-
-
     metric_precision.plot(values_precision)[0].savefig('metrics/val/precision.png')
     metric_accuracy.plot(values_accuracy)[0].savefig('metrics/val/accuracy.png')
     metric_recall.plot(values_recall)[0].savefig('metrics/val/recall.png')
@@ -422,7 +429,7 @@ def train_model(
 
     with torch.no_grad():
         metric_roc = torchmetrics.classification.MulticlassROC(num_classes=10, average=None)
-        values_loss_epoch_test = []
+        # values_loss_epoch_test = []
         model.eval()
 
         for images, labels in test_loader:
@@ -456,7 +463,7 @@ def train_model(
         print('--------------------------------')
 
         all_test_metric = [[avg_loss_epoch_val.item(), accuracy_epoch.item() * 100,
-                           precision_epoch.item(), recall_epoch.item(), f1_epoch.item()]]
+                            precision_epoch.item(), recall_epoch.item(), f1_epoch.item()]]
         name_list = ["Loss", "Acc", "Precision", "Recall", "F1"]
         logging_metrics(data=all_test_metric,
                         file_name="all_test_metric",
