@@ -88,6 +88,8 @@ def generate_dataset(
     generate_folder(path_dict, test_folder)
     generate_folder(path_dict, train_folder)
 
+    print("The dataset is generated in : "+dataset_folder)
+
 
 def parse_opt():
     """Parse command line arguments."""
