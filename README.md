@@ -143,7 +143,7 @@ Train.py  --num_epochs 5 --k_folds_num 4 --dataset_path dataset --batch_size 16
 По умолчанию инициирует веса model\trained_weights.pth  , и берет пример  example/TanaUncialSP.jpg
 
 ```
-Predict.py  --img_path front.jpg
+Predict.py 
 ```
 
 ```
